@@ -15,11 +15,8 @@ from common import utils
 from common.logging_utils import MetaLogger
 
 from models import utils_for_q_learning
-from models.DDPG import DDPG, TD3
-from models.Value_Decom_DDPG import Value_Decom_DDPG, Value_Decom_TD3
-
-from envs.PlainPoint import plainPoint, plainPointMAX
-from envs.AntEnv import MyAnt
+from models.DDPG import DDPG
+from models.TD3 import TD3
 
 def boolify(s):
     if s == 'True':
@@ -143,20 +140,8 @@ def main():
     """
     Choose whether to run on self constructed env or the guym
     """
-    if params["env_name"] in ["PlainPoint", "PlainPointMax"]:
-        if params["env_name"] == "PlainPoint":
-            env = plainPoint(Displacement=True, **env_args)
-            eval_env = plainPoint(Displacement=True, **env_args)
-        elif params["env_name"] == "PlainPointMax":
-            env = plainPointMAX(step_limit=1, Displacement=False, **env_args)
-            eval_env = plainPointMAX(step_limit=1, Displacement=False, **env_args)
-    else:
-        if params["env_name"] == "Ant-v4":
-            env = MyAnt()
-            eval_env = MyAnt()
-        else:
-            env = gym.make(params["env_name"], **env_args)
-            eval_env = gym.make(params["env_name"], **env_args)
+    env = gym.make(params["env_name"], **env_args)
+    eval_env = gym.make(params["env_name"], **env_args)
     params["env"] = env
     params["eval_env"] = env
     utils_for_q_learning.set_random_seed(params)
@@ -170,15 +155,11 @@ def main():
     
     
     if args.model == "DDPG":
-        if args.using_TD3:
-            Constructor = TD3
-        else:
-            Constructor = DDPG
-    elif args.model == "val_decom":
-        if args.using_TD3:
-            Constructor = Value_Decom_TD3
-        else:
-            Constructor = Value_Decom_DDPG
+        Constructor = DDPG
+    elif args.model == "TD3":
+        Constructor = TD3
+    elif args.model == "SAC":
+        Constructor == None
     else:
         raise ValueError("Bad module type!")
         
