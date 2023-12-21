@@ -17,6 +17,7 @@ from common.logging_utils import MetaLogger
 from models import utils_for_q_learning
 from models.DDPG import DDPG
 from models.TD3 import TD3
+from models.SAC import SAC
 
 def boolify(s):
     if s == 'True':
@@ -57,31 +58,6 @@ def main():
                         default="DDPG",
                         type=str
                         )
-    parser.add_argument("--using_TD3",
-                        required=False,
-                        default=False,
-                        type=boolify
-                       )
-    parser.add_argument("--mixture_network",
-                        required=False,
-                        default="Normal_no_abs",
-                        type=str) # it should be in ["Normal", "QMix_abs", "QMix_no_abs"]
-    parser.add_argument("--proportion_loss",
-                        required=False,
-                        default=False,
-                        type=utils.boolify)
-    parser.add_argument("--proportion_loss_weight",
-                        required=False,
-                        default=1,
-                        type=float)
-    parser.add_argument("--head_proportion",
-                        required=False,
-                        default="",
-                        type=str)
-    parser.add_argument("--env_args",
-                        required=False,
-                        default="",
-                        type=str)
     # python experiment.py --hyper_param_name Walker --experiment_label test --run_title test --model I_DDPG --env_args forward_reward_weight-0.1,ctrl_cost_weight-100
     """
     Parse the parameters from the command line
@@ -105,13 +81,6 @@ def main():
     params["hyper_parameters_name"] = args.hyper_param_name
     params["seed"] = args.seed
     params["model"] = args.model
-    params["using_TD3"] = args.using_TD3
-    params["mixture_network"] = args.mixture_network
-    params["proportion_loss"] = args.proportion_loss
-    params["proportion_loss_weight"] = args.proportion_loss_weight
-    params["env_args"] = args.env_args
-    if args.head_proportion:
-        params["head_proportion"] = args.head_proportion
     for arg_name, arg_value in other_args:
         utils.update_param(params, arg_name, arg_value)
     utils.save_hyper_parameters(params, args.seed)
@@ -128,20 +97,10 @@ def main():
     meta_logger.add_field("average_Q_value", logging_filename)
     
     """
-    Define the training environment
-    """
-    if args.env_args:
-        env_args = dict((a.strip(), float(b.strip()))  
-                        for a, b in (element.split('-')  
-                                    for element in args.env_args.split('/')))
-    else:
-        env_args = dict()
-    
-    """
     Choose whether to run on self constructed env or the guym
     """
-    env = gym.make(params["env_name"], **env_args)
-    eval_env = gym.make(params["env_name"], **env_args)
+    env = gym.make(params["env_name"])
+    eval_env = gym.make(params["env_name"])
     params["env"] = env
     params["eval_env"] = env
     utils_for_q_learning.set_random_seed(params)
@@ -153,16 +112,15 @@ def main():
     
     Constructor = None
     
-    
     if args.model == "DDPG":
         Constructor = DDPG
     elif args.model == "TD3":
         Constructor = TD3
     elif args.model == "SAC":
-        Constructor == None
+        Constructor = SAC
     else:
         raise ValueError("Bad module type!")
-        
+    
     s0 = env.reset()[0]
     Q_object = Constructor(params = params, 
                            env = env,
@@ -217,7 +175,7 @@ def main():
                     s_eval = eval_env.reset()[0]
                     G_eval, done_eval, t_eval, truncated_eval = 0, False, 0, False
                     while not (done_eval or truncated_eval):
-                        a_eval = Q_object.e_greedy_policy(s_eval, episode, 'test')
+                        a_eval = Q_object.enact_policy(s_eval, episode, 'test')
                         # print(a_eval)
                         sp_eval, r_eval, done_eval, truncated_eval, _ = eval_env.step(a_eval)
                         s_eval, G_eval, t_eval = sp_eval, G_eval + r_eval, t_eval + 1

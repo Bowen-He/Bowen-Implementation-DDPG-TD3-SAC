@@ -15,5 +15,4 @@ policy_parameter,2.75,float
 noise_std,0.1,float
 gamma,0.99,float
 reward_clip,20,integer
-head_config,3-3,string
-head_proportion,1-1,string
+entropy_weight,0.1,float

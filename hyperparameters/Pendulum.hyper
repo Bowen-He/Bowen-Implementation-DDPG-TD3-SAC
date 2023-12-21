@@ -16,3 +16,4 @@ noise_std,0.05,float
 gamma,0.99,float
 reward_clip,20,integer
 head_config,1,string
+entropy_weight,0.1,float
