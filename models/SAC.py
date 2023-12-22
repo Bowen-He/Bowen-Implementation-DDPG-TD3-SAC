@@ -40,6 +40,11 @@ class SAC(nn.Module):
         self.num_updates = 0
         self.actor_update_delay = 2
         
+        self.alpha = 0.1
+        self.target_entropy = -torch.prod(torch.Tensor(self.action_size).to(self.device)).item()
+        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha_optim = optim.Adam([self.log_alpha], lr=self.params["learning_rate_critic"])
+        
         self.to(self.device)
 
     def _make_policy_module(self):
@@ -135,7 +140,7 @@ class SAC(nn.Module):
             action_, log_prob_ = self._get_best_action(sp_matrix)
             values_1_, values_2_ = target_Q._get_sa_value(sp_matrix, action_)
             Q_star = torch.min(torch.cat((values_1_, values_2_), dim=1), dim=1)[0]
-            y = r_matrix + (self.params['gamma'] * (1 - done_matrix) * (Q_star.squeeze() - self.params["entropy_weight"]*log_prob_))
+            y = r_matrix + (self.params['gamma'] * (1 - done_matrix) * (Q_star.squeeze() - self.alpha*log_prob_))
             
         
         y_hat_1, y_hat_2 = self.forward(s_matrix, a_matrix)
@@ -150,13 +155,21 @@ class SAC(nn.Module):
         if self.num_updates % self.actor_update_delay == 0:
             action, log_prob = self._get_best_action(s_matrix)
             values_1, values_2 = self._get_sa_value(s_matrix, action)
-            y_hat = torch.min(torch.cat((values_1, values_2), dim=1), dim=1)[0] - self.params["entropy_weight"]*log_prob
+            y_hat = torch.min(torch.cat((values_1, values_2), dim=1), dim=1)[0] - self.alpha*log_prob
             neg_y_hat = -1*(y_hat)
             
             neg_y_hat_mean = neg_y_hat.mean()
             neg_y_hat_mean.backward()
             self.policy_optimizer.step()
             self.zero_grad()
+            
+            alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
+            alpha_loss.backward()
+            self.alpha_optim.step()
+            self.zero_grad()
+
+            print(self.alpha)
+            self.alpha = self.log_alpha.exp()
 
             if sync_networks:
                 utils_for_q_learning.sync_networks(
