@@ -115,7 +115,7 @@ class SAC(nn.Module):
         # print(s)
         with torch.no_grad():
             s = torch.from_numpy(s_matrix).float().to(self.device)
-            _, a = self.get_best_qvalue_and_Action(s)
+            a = self._get_best_action(s)[0]
             a = a.cpu().numpy()
         
         return a[0]
