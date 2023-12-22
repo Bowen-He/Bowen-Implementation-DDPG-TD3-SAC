@@ -81,8 +81,10 @@ class SAC(nn.Module):
         assert len(s.shape) == 2
         action_logits = self.policy_module(s) # shape [batch, 2]
         mu, log_sigma = action_logits[:, :self.action_size], action_logits[:, self.action_size:]
+        log_sigma = torch.clamp(log_sigma, -20, 2)
         sigma = torch.exp(log_sigma)
-        covariance = (torch.eye(6).unsqueeze(0).to(self.device) * sigma)
+        
+        covariance = (torch.eye(self.action_size).unsqueeze(0).to(self.device) * sigma.unsqueeze(-1))
         dist = MultivariateNormal(mu, covariance)
         z = dist.rsample()
         log_prob = dist.log_prob(z)
